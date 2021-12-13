@@ -16,8 +16,9 @@ public class FileUtils {
 
     private static File minecraftFolder;
     private static File packFolder;
-    private static File tempFolder;
     private static File assetsFolder;
+    private static File tempFolder;
+    private static File tempAssetsFolder;
     private static File objectsFolder;
     private static File jarFile;
     private static File indexFile;
@@ -28,11 +29,14 @@ public class FileUtils {
     public static File getPackFolder() {
         return packFolder;
     }
+    public static File getAssetsFolder() {
+        return assetsFolder;
+    }
     public static File getTempFolder() {
         return tempFolder;
     }
-    public static File getAssetsFolder() {
-        return assetsFolder;
+    public static File getTempAssetsFolder() {
+        return tempAssetsFolder;
     }
     public static File getObjectsFolder() {
         return objectsFolder;
@@ -50,8 +54,9 @@ public class FileUtils {
         minecraftFolder = new File(System.getenv("APPDATA").concat("\\.minecraft"));
 
         packFolder = new File(minecraftFolder, "resourcepacks\\Shuffle");
+        assetsFolder = new File(packFolder, "assets");
         tempFolder = new File(packFolder, "temp");
-        assetsFolder = new File(tempFolder, "assets");
+        tempAssetsFolder = new File(tempFolder, "assets");
 
         objectsFolder = new File(minecraftFolder, "assets\\objects");
         jarFile = new File(minecraftFolder, "versions\\" + version + "\\" + version + ".jar");
@@ -62,7 +67,7 @@ public class FileUtils {
             return false;
         }
 
-        if (!assetsFolder.exists() && !assetsFolder.mkdirs()) {
+        if (!tempAssetsFolder.exists() && !tempAssetsFolder.mkdirs()) {
             ResourcePackShuffler.quit("make required files");
             return false;
         }
@@ -70,14 +75,14 @@ public class FileUtils {
         return true;
     }
 
-    public static Object getJsonObject(File file, Class objectClass) throws IOException {
+    public static Object getJsonObject(File file, Class<com.obsidian5.resourcepackshuffler.utils.mojang.Index> objectClass) throws IOException { // remove "<com.obsidian5.resourcepackshuffler.utils.mojang.Index>" if needed for something else
         Reader reader = Files.newBufferedReader(file.toPath());
         Object object = new Gson().fromJson(reader, objectClass);
         reader.close();
         return object;
     }
 
-    public static List<File> getPngFiles(File folder) { // TODO
+    public static List<File> getFilesInFolder(File folder) {
         File[] fileList = folder.listFiles();
 
         if (fileList == null)
@@ -87,33 +92,25 @@ public class FileUtils {
 
         for (File file : fileList) {
             if (file.isDirectory()) {
-                List<File> metaFiles = getPngFiles(file);
+                List<File> metaFiles = getFilesInFolder(file);
 
                 if (metaFiles != null)
                     files.addAll(metaFiles);
-            }
-
-            if (!file.getName().endsWith(".png"))
-                continue;
-
-            files.add(file);
+            } else
+                files.add(file);
         }
 
         return files;
     }
 
-    public static List<BufferedImage> getPngData(List<File> files) throws IOException {
-        if (files == null)
+    public static List<BufferedImage> getPngData(List<File> pngFiles) throws IOException {
+        if (pngFiles == null)
             return null;
 
         List<BufferedImage> images = new CopyOnWriteArrayList<>();
 
-        for (File file : files) {
-            if (!file.getName().endsWith(".png"))
-                continue;
-
+        for (File file : pngFiles)
             images.add(ImageIO.read(file));
-        }
 
         return images;
     }
@@ -160,5 +157,31 @@ public class FileUtils {
         }
 
         return destFile;
+    }
+
+    public static void copyFile(File source, File destination) throws IOException {
+        destination.getParentFile().mkdirs();
+
+        destination.createNewFile();
+
+        try (InputStream is = new FileInputStream(source); OutputStream os = new FileOutputStream(destination)) {
+
+            byte[] buffer = new byte[1024];
+
+            int bytesRead;
+            while ((bytesRead = is.read(buffer)) > 0) {
+                os.write(buffer, 0, bytesRead);
+            }
+        }
+    }
+
+    public static boolean deleteFolder(File folder) {
+        File[] files = folder.listFiles();
+
+        if (files != null)
+            for (File file : files)
+                deleteFolder(file);
+
+        return folder.delete();
     }
 }
